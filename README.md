@@ -4,9 +4,9 @@
 
 ## Introduction
 
-[Testcontainers for Go](https://golang.testcontainers.org/) makes it simple to programmatically create and clean up container-based dependencies for automated integration/smoke tests.
+This module can be used to test your DynamoDB Go applications using Testcontainers.
 
-This module can be used to testing your DynamoDB Go applications using [DynamoDB Local](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html), which is a local version of Amazon DynamoDB that can be run locally as a Docker container (or [other forms](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.DownloadingAndRunning.html)). 
+[Testcontainers for Go](https://golang.testcontainers.org/) makes it simple to programmatically create and clean up container-based dependencies for automated integration/smoke tests. [DynamoDB Local](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html) is a version of Amazon DynamoDB that you can run locally as a Docker container (or [other forms](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.DownloadingAndRunning.html)). 
 
 ## To add this module to your project dependencies
 
@@ -31,11 +31,26 @@ The example:
 3. Gets the client handle for the DynamoDB (local) instance - `dynamodbLocalContainer.GetDynamoDBClient(context.Background())`
 4. Uses the client handle to execute operations. In this case - create a table, add an item, query that item.
 
-To summarize, the key operations are: start the container -> get the client handle -> use it for DynamoDB operations -> terminate the container
-
 > Refer to [Module Options](#module-options) for additional configuration
 
 ```go
+package main
+
+import (
+	"context"
+	"log"
+
+	dynamodblocal "github.com/abhirockzz/dynamodb-local-testcontainers-go"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+)
+
+const (
+	tableName    = "demo_table"
+	pkColumnName = "demo_pk"
+)
+
 func main() {
 
 	ctx := context.Background()
@@ -86,6 +101,66 @@ func main() {
 	}
 
 	log.Println("queried data from dynamodb table. result -", queryResult)
+}
+
+func createTable(client *dynamodb.Client) error {
+	_, err := client.CreateTable(context.Background(), &dynamodb.CreateTableInput{
+		TableName: aws.String(tableName),
+		KeySchema: []types.KeySchemaElement{
+			{
+				AttributeName: aws.String(pkColumnName),
+				KeyType:       types.KeyTypeHash,
+			},
+		},
+		AttributeDefinitions: []types.AttributeDefinition{
+			{
+				AttributeName: aws.String(pkColumnName),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+		},
+		BillingMode: types.BillingModePayPerRequest,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	//log.Println("created table")
+	return nil
+}
+
+func addDataToTable(client *dynamodb.Client, val string) error {
+
+	_, err := client.PutItem(context.Background(), &dynamodb.PutItemInput{
+		TableName: aws.String(tableName),
+		Item: map[string]types.AttributeValue{
+			pkColumnName: &types.AttributeValueMemberS{Value: val},
+		},
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func queryItem(client *dynamodb.Client, val string) (string, error) {
+
+	output, err := client.GetItem(context.Background(), &dynamodb.GetItemInput{
+		TableName: aws.String(tableName),
+		Key: map[string]types.AttributeValue{
+			pkColumnName: &types.AttributeValueMemberS{Value: val},
+		},
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	result := output.Item[pkColumnName].(*types.AttributeValueMemberS)
+
+	return result.Value, nil
 }
 ```
 
