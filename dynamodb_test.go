@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
 )
 
 const (
@@ -51,6 +52,28 @@ func TestIntegration(t *testing.T) {
 	//log.Println("queryResult", queryResult)
 	require.Equal(t, value, queryResult)
 
+}
+
+func TestIntegrationWithCustomImageVersion(t *testing.T) {
+	ctx := context.Background()
+
+	container, err := RunContainer(ctx, testcontainers.WithImage("amazon/dynamodb-local:2.2.0"))
+	require.NoError(t, err)
+
+	// Clean up the container after the test is complete
+	t.Cleanup(func() {
+		err := container.Terminate(context.Background())
+		if err != nil {
+			t.Fatalf("container termination failed: %s", err)
+		}
+	})
+}
+
+func TestIntegrationWithInvalidCustomImageVersion(t *testing.T) {
+	ctx := context.Background()
+
+	_, err := RunContainer(ctx, testcontainers.WithImage("amazon/dynamodb-local:0.0.7"))
+	require.Error(t, err)
 }
 
 func TestIntegrationWithoutEndpointResolver(t *testing.T) {

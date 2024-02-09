@@ -19,7 +19,7 @@ type DynamodbLocalContainer struct {
 }
 
 const (
-	image         = "amazon/dynamodb-local:latest"
+	image         = "amazon/dynamodb-local:2.2.1"
 	port          = nat.Port("8000/tcp")
 	containerName = "dynamodb_local"
 )
